@@ -6,7 +6,8 @@ COPY go.mod ./
 RUN go mod download
 
 COPY . ./
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o /out/frameserve ./main.go
+ARG TARGETARCH
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build -trimpath -ldflags="-s -w" -o /out/frameserve ./main.go
 
 # ---- runtime ----
 FROM gcr.io/distroless/static:nonroot
