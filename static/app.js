@@ -40,13 +40,25 @@
   let timer = null;
   let lastListHash = "";
 
+  function logDebug() {
+    if (typeof console !== "undefined" && typeof console.debug === "function") {
+      console.debug.apply(console, arguments);
+    }
+  }
+
+  function logWarn() {
+    if (typeof console !== "undefined" && typeof console.warn === "function") {
+      console.warn.apply(console, arguments);
+    }
+  }
+
   // ---- Wake Lock (best-effort; OS/browser may still dim/sleep) ----
   let wakeLock = null;
 
   async function requestWakeLock() {
     if (!keepAwake) return;
     if (!("wakeLock" in navigator)) {
-      console.debug("Wake Lock API not supported");
+      logDebug("Wake Lock API not supported");
       return;
     }
 
@@ -55,14 +67,14 @@
 
     try {
       wakeLock = await navigator.wakeLock.request("screen");
-      console.debug("Wake lock acquired");
+      logDebug("Wake lock acquired");
 
       wakeLock.addEventListener("release", () => {
-        console.debug("Wake lock released");
+        logDebug("Wake lock released");
         wakeLock = null;
       });
     } catch (err) {
-      console.warn("Wake lock request failed:", err);
+      logWarn("Wake lock request failed:", err);
       wakeLock = null;
     }
   }
@@ -127,6 +139,33 @@
     return active === "A" ? imgB : imgA;
   }
 
+  function isFullscreenActive() {
+    return !!(
+      document.fullscreenElement ||
+      document.webkitFullscreenElement ||
+      document.mozFullScreenElement ||
+      document.msFullscreenElement
+    );
+  }
+
+  function requestAnyFullscreen(el) {
+    const fn =
+      el.requestFullscreen ||
+      el.webkitRequestFullscreen ||
+      el.mozRequestFullScreen ||
+      el.msRequestFullscreen;
+    if (fn) fn.call(el);
+  }
+
+  function exitAnyFullscreen() {
+    const fn =
+      document.exitFullscreen ||
+      document.webkitExitFullscreen ||
+      document.mozCancelFullScreen ||
+      document.msExitFullscreen;
+    if (fn) fn.call(document);
+  }
+
   function swapLayers() {
     const cur = currentImg();
     const nxt = nextImg();
@@ -150,6 +189,23 @@
       i.onerror = () => resolve(false);
       i.src = url;
     });
+  }
+
+  function getKey(e) {
+    if (typeof e.key === "string" && e.key.length > 0) {
+      // Legacy Safari may report Spacebar instead of a single space.
+      return e.key === "Spacebar" ? " " : e.key;
+    }
+
+    const code = e.which || e.keyCode;
+    switch (code) {
+      case 32: return " ";
+      case 37: return "ArrowLeft";
+      case 39: return "ArrowRight";
+      case 70: return "f";
+      case 72: return "h";
+      default: return "";
+    }
   }
 
   async function showAt(i, immediate = false) {
@@ -230,7 +286,7 @@
           // Continue slideshow seamlessly; show current immediately.
           await showAt(idx, true);
         }
-      } catch {
+      } catch (err) {
         // ignore
       }
     }, refreshSeconds * 1000);
@@ -238,32 +294,35 @@
 
   function bindKeys() {
     window.addEventListener("keydown", async (e) => {
-      if (e.key === " " || e.code === "Space") {
+      const key = getKey(e);
+      const lowerKey = key.toLowerCase ? key.toLowerCase() : "";
+
+      if (key === " " || key === "Space") {
         e.preventDefault();
         paused = !paused;
         setStatus(`${idx + 1}/${photos.length} • ${paused ? "paused" : seconds + "s"} • ${shuffle ? "shuffle" : "ordered"} • fit=${fit}`);
         return;
       }
-      if (e.key === "ArrowRight") {
+      if (key === "ArrowRight") {
         e.preventDefault();
         await showAt(nextIndex());
         return;
       }
-      if (e.key === "ArrowLeft") {
+      if (key === "ArrowLeft") {
         e.preventDefault();
         await showAt(prevIndex());
         return;
       }
-      if (e.key.toLowerCase() === "f") {
+      if (lowerKey === "f") {
         e.preventDefault();
-        if (!document.fullscreenElement) {
-          document.documentElement.requestFullscreen?.();
+        if (!isFullscreenActive()) {
+          requestAnyFullscreen(document.documentElement);
         } else {
-          document.exitFullscreen?.();
+          exitAnyFullscreen();
         }
         return;
       }
-      if (e.key.toLowerCase() === "h") {
+      if (lowerKey === "h") {
         e.preventDefault();
         hud.classList.toggle("hidden");
         return;
