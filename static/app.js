@@ -1,4 +1,6 @@
 (() => {
+  const auraA = document.getElementById("auraA");
+  const auraB = document.getElementById("auraB");
   const imgA = document.getElementById("imgA");
   const imgB = document.getElementById("imgB");
   const hud = document.getElementById("hud");
@@ -138,6 +140,12 @@
   function nextImg() {
     return active === "A" ? imgB : imgA;
   }
+  function currentAura() {
+    return active === "A" ? auraA : auraB;
+  }
+  function nextAura() {
+    return active === "A" ? auraB : auraA;
+  }
 
   function isFullscreenActive() {
     return !!(
@@ -169,6 +177,12 @@
   function swapLayers() {
     const cur = currentImg();
     const nxt = nextImg();
+    const curAura = currentAura();
+    const nxtAura = nextAura();
+
+    curAura.classList.remove("visible");
+    nxtAura.classList.add("visible");
+
     if (transition === "slide") {
       cur.classList.add("exiting");
       cur.classList.remove("visible");
@@ -221,8 +235,14 @@
     await preload(url);
 
     nxt.src = url;
+    const nxtAura = nextAura();
+    nxtAura.src = url;
 
     if (immediate) {
+      auraA.classList.remove("visible");
+      auraB.classList.remove("visible");
+      nxtAura.classList.add("visible");
+
       // Make next visible instantly without animation
       imgA.classList.remove("visible");
       imgB.classList.remove("visible");
