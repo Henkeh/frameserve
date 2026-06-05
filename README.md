@@ -4,8 +4,8 @@
 
 Frameserve turns a folder of photos into a clean, full-screen slideshow you can open in any browser — TVs, tablets, old laptops, wall displays, kiosks, you name it.
 
-No galleries.  
-No uploads.  
+No galleries.
+No uploads.
 No clutter.
 
 Just photos, one at a time, like a real digital photo frame.
@@ -37,7 +37,7 @@ This is a design choice, not a limitation:
 - ❌ No file management UI
 - ❌ No database
 
-The **photos folder is the source of truth**.  
+The **photos folder is the source of truth**.
 If you can add files to that folder, Frameserve will show them.
 
 ---
@@ -46,7 +46,7 @@ If you can add files to that folder, Frameserve will show them.
 
 ### 1️⃣ Put your photos somewhere
 
-Create a folder called `photos` and drop images into it:
+Create a folder called `photos` and drop images or videos into it:
 
 ```
 
@@ -54,14 +54,21 @@ photos/
 vacation.jpg
 family.png
 dog.webp
+party.mp4
 
 ````
 
-Supported formats:
+Supported image formats:
 - JPG / JPEG
 - PNG
 - WebP
 - GIF
+
+Supported video formats:
+- MP4
+- WebM
+- OGG / OGV
+- MOV / M4V
 
 ---
 
@@ -128,9 +135,10 @@ http://localhost:8080/?seconds=15&shuffle=1&fit=cover
 
 | Option                      | What it does                                 |
 | --------------------------- | -------------------------------------------- |
-| `seconds=15`                | Time each photo stays on screen              |
+| `seconds=15`                | Time each image stays on screen              |
 | `shuffle=1`                 | Random photo order                           |
 | `fit=contain` / `fit=cover` | Letterbox vs full-bleed                      |
+| `video=fit` / `video=seconds` | Video duration behavior (full video or cap to `seconds`) |
 | `hud=1`                     | Show on-screen status                        |
 | `refresh=60`                | How often to re-scan the photos folder       |
 | `awake=1`                   | Best-effort request to keep the screen awake |
@@ -187,8 +195,8 @@ You don’t need these, but they exist:
 
 * `/` — slideshow
 * `/info` — usage help
-* `/api/photos` — JSON list of images
-* `/photos/<filename>` — serves image bytes
+* `/api/photos` — JSON list of media
+* `/photos/<filename>` — serves image/video bytes
 * `/healthz` — health check (no auth)
 
 ---
