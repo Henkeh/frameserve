@@ -3,8 +3,6 @@
   const auraB = document.getElementById("auraB");
   const imgA = document.getElementById("imgA");
   const imgB = document.getElementById("imgB");
-  const vidA = document.getElementById("vidA");
-  const vidB = document.getElementById("vidB");
   const hud = document.getElementById("hud");
   const statusEl = document.getElementById("status");
 
@@ -17,8 +15,6 @@
   //  - refresh=60 (seconds to re-fetch list)
   //  - awake=1 (request Screen Wake Lock; default on)
   //  - transition=fade|none|slide (default: fade)
-  //  - video=fit|seconds (default: fit)
-  // Supported media types in /photos: images and videos
   const params = new URLSearchParams(location.search);
 
   const seconds = clampInt(params.get("seconds"), 10, 1, 3600);
@@ -29,12 +25,9 @@
   const refreshSeconds = clampInt(params.get("refresh"), 60, 5, 3600);
   const keepAwake = truthy(params.get("awake"), true);
   const transition = validTransition(params.get("transition"));
-  const videoMode = validVideoMode(params.get("video"));
 
   imgA.style.objectFit = (fit === "cover") ? "cover" : "contain";
   imgB.style.objectFit = (fit === "cover") ? "cover" : "contain";
-  vidA.style.objectFit = (fit === "cover") ? "cover" : "contain";
-  vidB.style.objectFit = (fit === "cover") ? "cover" : "contain";
 
   const stage = document.getElementById("stage");
   stage.classList.add("trans-" + transition);
@@ -47,8 +40,6 @@
   let paused = false;
   let active = "A";
   let timer = null;
-  let videoEndedHandler = null;
-  let videoErrorHandler = null;
   let lastListHash = "";
 
   function logDebug() {
@@ -126,12 +117,6 @@
     return allowed.includes(s) ? s : "fade";
   }
 
-  function validVideoMode(v) {
-    const allowed = ["fit", "seconds"];
-    const s = (v || "").toLowerCase().trim();
-    return allowed.includes(s) ? s : "fit";
-  }
-
   function pickStartIndex() {
     if (!photos.length) return 0;
     return shuffle ? Math.floor(Math.random() * photos.length) : 0;
@@ -155,79 +140,11 @@
   function nextImg() {
     return active === "A" ? imgB : imgA;
   }
-  function currentVideo() {
-    return active === "A" ? vidA : vidB;
-  }
-  function nextVideo() {
-    return active === "A" ? vidB : vidA;
-  }
   function currentAura() {
     return active === "A" ? auraA : auraB;
   }
   function nextAura() {
     return active === "A" ? auraB : auraA;
-  }
-
-  function mediaForSlot(slot) {
-    const img = slot === "A" ? imgA : imgB;
-    const vid = slot === "A" ? vidA : vidB;
-    return vid.style.display !== "none" ? vid : img;
-  }
-
-  function currentMediaEl() {
-    return mediaForSlot(active);
-  }
-
-  function extFromName(name) {
-    const i = name.lastIndexOf(".");
-    if (i < 0) return "";
-    return name.slice(i).toLowerCase();
-  }
-
-  function mediaType(item) {
-    const t = item && item.type ? String(item.type).toLowerCase() : "";
-    if (t === "video" || t === "image") return t;
-
-    const e = extFromName(item && item.name ? item.name : "");
-    if (e === ".mp4" || e === ".webm" || e === ".ogg" || e === ".ogv" || e === ".mov" || e === ".m4v") return "video";
-    return "image";
-  }
-
-  function hideMediaEl(el) {
-    el.classList.remove("visible", "exiting");
-    el.style.display = "none";
-  }
-
-  function showMediaEl(el) {
-    el.style.display = "block";
-    el.classList.add("visible");
-  }
-
-  function stopVideo(el) {
-    if (!el) return;
-    if (videoEndedHandler) el.removeEventListener("ended", videoEndedHandler);
-    if (videoErrorHandler) el.removeEventListener("error", videoErrorHandler);
-    videoEndedHandler = null;
-    videoErrorHandler = null;
-    try {
-      el.pause();
-      el.currentTime = 0;
-    } catch (err) {
-      // ignore
-    }
-  }
-
-  function clearNonVisibleMedia() {
-    const activeMedia = currentMediaEl();
-
-    [imgA, imgB, vidA, vidB].forEach((el) => {
-      if (el !== activeMedia) {
-        if (el === vidA || el === vidB) {
-          stopVideo(el);
-        }
-        hideMediaEl(el);
-      }
-    });
   }
 
   function isFullscreenActive() {
@@ -257,33 +174,26 @@
     if (fn) fn.call(document);
   }
 
-  function swapLayers(currentEl, nextEl, showAura) {
+  function swapLayers() {
+    const cur = currentImg();
+    const nxt = nextImg();
     const curAura = currentAura();
     const nxtAura = nextAura();
 
-    if (showAura) {
-      curAura.classList.remove("visible");
-      nxtAura.classList.add("visible");
-    } else {
-      curAura.classList.remove("visible");
-      nxtAura.classList.remove("visible");
-    }
+    curAura.classList.remove("visible");
+    nxtAura.classList.add("visible");
 
     if (transition === "slide") {
-      currentEl.classList.add("exiting");
-      currentEl.classList.remove("visible");
-      nextEl.classList.add("visible");
+      cur.classList.add("exiting");
+      cur.classList.remove("visible");
+      nxt.classList.add("visible");
       // Remove exiting class after the CSS transition finishes
-      setTimeout(() => currentEl.classList.remove("exiting"), 950);
+      setTimeout(() => cur.classList.remove("exiting"), 950);
     } else {
-      currentEl.classList.remove("visible");
-      nextEl.classList.add("visible");
+      cur.classList.remove("visible");
+      nxt.classList.add("visible");
     }
     active = (active === "A") ? "B" : "A";
-
-    setTimeout(() => {
-      clearNonVisibleMedia();
-    }, transition === "slide" ? 960 : 0);
   }
 
   function preload(url) {
@@ -312,152 +222,52 @@
     }
   }
 
-  function updateStatus() {
-    const item = photos[idx];
-    const kind = mediaType(item);
-    const cadence = paused
-      ? "paused"
-      : (kind === "video" ? (videoMode === "seconds" ? `video<=${seconds}s` : "video") : seconds + "s");
-    setStatus(`${idx + 1}/${photos.length} • ${cadence} • ${shuffle ? "shuffle" : "ordered"} • fit=${fit}`);
+  async function showAt(i, immediate = false) {
+    if (!photos.length) return;
+
+    idx = i;
+    const url = photos[idx].url || photos[idx];
+
+    setStatus(`${idx + 1}/${photos.length} • ${paused ? "paused" : seconds + "s"} • ${shuffle ? "shuffle" : "ordered"} • fit=${fit}`);
+
+    const nxt = nextImg();
+    // preload first to minimize blank flashes
+    await preload(url);
+
+    nxt.src = url;
+    const nxtAura = nextAura();
+    nxtAura.src = url;
+
+    if (immediate) {
+      auraA.classList.remove("visible");
+      auraB.classList.remove("visible");
+      nxtAura.classList.add("visible");
+
+      // Make next visible instantly without animation
+      imgA.classList.remove("visible");
+      imgB.classList.remove("visible");
+      nxt.classList.add("visible");
+      active = (nxt === imgA) ? "A" : "B";
+      return;
+    }
+
+    // Crossfade
+    requestAnimationFrame(() => {
+      swapLayers();
+    });
   }
 
-  function stopTimer() {
-    if (timer) clearTimeout(timer);
-    timer = null;
-  }
-
-  function scheduleImageAdvance() {
+  function startTimer() {
     stopTimer();
-    timer = setTimeout(() => {
+    timer = setInterval(() => {
       if (paused) return;
       showAt(nextIndex());
     }, seconds * 1000);
   }
 
-  function bindVideoAdvance(videoEl) {
-    if (!videoEl) return;
-
-    videoEndedHandler = () => {
-      if (paused) return;
-      showAt(nextIndex());
-    };
-    videoErrorHandler = () => {
-      if (paused) return;
-      showAt(nextIndex());
-    };
-
-    videoEl.addEventListener("ended", videoEndedHandler, { once: true });
-    videoEl.addEventListener("error", videoErrorHandler, { once: true });
-  }
-
-  async function startCurrentVideo() {
-    const videoEl = currentVideo();
-    if (!videoEl || videoEl.style.display === "none") return;
-
-    bindVideoAdvance(videoEl);
-
-    try {
-      const p = videoEl.play();
-      if (p && typeof p.then === "function") {
-        await p;
-      }
-    } catch (err) {
-      logWarn("Video autoplay failed:", err);
-      scheduleImageAdvance();
-    }
-  }
-
-  async function scheduleAdvanceForCurrent() {
-    stopTimer();
-    const item = photos[idx];
-    if (!item || paused) return;
-
-    if (mediaType(item) === "video") {
-      await startCurrentVideo();
-      if (videoMode === "seconds") {
-        scheduleImageAdvance();
-      }
-      return;
-    }
-
-    scheduleImageAdvance();
-  }
-
-  async function showAt(i, immediate = false) {
-    if (!photos.length) return;
-
-    stopTimer();
-    stopVideo(currentVideo());
-    stopVideo(nextVideo());
-
-    idx = i;
-    const item = photos[idx] || {};
-    const url = item.url || item;
-    const kind = mediaType(item);
-
-    updateStatus();
-
-    const nxtAura = nextAura();
-    const curImg = currentImg();
-    const curVid = currentVideo();
-    const currentEl = currentMediaEl();
-
-    let nextEl;
-
-    if (kind === "video") {
-      const nxtVid = nextVideo();
-      hideMediaEl(nextImg());
-      nxtVid.classList.remove("exiting");
-      nxtVid.style.display = "block";
-      nxtVid.src = url;
-      nxtVid.load();
-      nextEl = nxtVid;
-
-      nxtAura.removeAttribute("src");
-      nxtAura.style.opacity = "0";
-    } else {
-      const nxtImg = nextImg();
-      hideMediaEl(nextVideo());
-      // preload first to minimize blank flashes
-      await preload(url);
-      nxtImg.src = url;
-      nxtImg.classList.remove("exiting");
-      nxtImg.style.display = "block";
-      nextEl = nxtImg;
-
-      nxtAura.src = url;
-      nxtAura.style.opacity = "";
-    }
-
-    if (immediate) {
-      stopVideo(curVid);
-      hideMediaEl(curImg);
-      hideMediaEl(curVid);
-
-      auraA.classList.remove("visible");
-      auraB.classList.remove("visible");
-      if (kind === "video") {
-        nxtAura.classList.remove("visible");
-      } else {
-        nxtAura.classList.add("visible");
-      }
-
-      // Make next visible instantly without animation
-      showMediaEl(nextEl);
-      active = (active === "A") ? "B" : "A";
-
-      clearNonVisibleMedia();
-      if (!paused) await scheduleAdvanceForCurrent();
-      return;
-    }
-
-    // Crossfade
-    requestAnimationFrame(async () => {
-      swapLayers(currentEl, nextEl, kind !== "video");
-      if (!paused) {
-        await scheduleAdvanceForCurrent();
-      }
-    });
+  function stopTimer() {
+    if (timer) clearInterval(timer);
+    timer = null;
   }
 
   async function fetchPhotos() {
@@ -510,17 +320,7 @@
       if (key === " " || key === "Space") {
         e.preventDefault();
         paused = !paused;
-        if (photos.length) {
-          if (paused) {
-            if (mediaType(photos[idx]) === "video") {
-              currentVideo().pause();
-            }
-            stopTimer();
-          } else {
-            scheduleAdvanceForCurrent();
-          }
-        }
-        updateStatus();
+        setStatus(`${idx + 1}/${photos.length} • ${paused ? "paused" : seconds + "s"} • ${shuffle ? "shuffle" : "ordered"} • fit=${fit}`);
         return;
       }
       if (key === "ArrowRight") {
@@ -558,11 +358,11 @@
     requestWakeLock();
 
     try {
-      setStatus("Loading media…");
+      setStatus("Loading photos…");
       await fetchPhotos();
 
       if (!photos.length) {
-        setStatus("No media found in /photos (mount your directory).");
+        setStatus("No photos found in /photos (mount your directory).");
         // Keep HUD visible so user sees message
         hud.classList.remove("hidden");
         return;
@@ -570,6 +370,8 @@
 
       idx = pickStartIndex();
       await showAt(idx, true);
+
+      startTimer();
       refreshListPeriodically();
     } catch (err) {
       setStatus(`Error: ${err.message}`);

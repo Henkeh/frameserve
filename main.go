@@ -27,7 +27,6 @@ var staticFS embed.FS
 type Photo struct {
 	URL   string `json:"url"`
 	Name  string `json:"name"`
-	Type  string `json:"type"`
 	Mtime int64  `json:"mtime"`
 	Size  int64  `json:"size"`
 }
@@ -100,7 +99,7 @@ func main() {
 		serveEmbeddedFile(w, r, path, "")
 	})
 
-	// API: list media
+	// API: list photos
 	mux.HandleFunc("/api/photos", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			w.Header().Set("Allow", http.MethodGet)
@@ -174,7 +173,7 @@ func main() {
 			w.Header().Set("Content-Type", ct)
 		}
 
-		// Cache media aggressively; list refresh handles new files.
+		// Cache images aggressively; list refresh handles new images.
 		w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
 
 		http.ServeFile(w, r, fullPath)
@@ -274,7 +273,6 @@ func scanPhotos(dir string) ([]Photo, error) {
 		photos = append(photos, Photo{
 			URL:   url,
 			Name:  name,
-			Type:  mediaTypeFromName(name),
 			Mtime: mtime,
 			Size:  fi.Size(),
 		})
@@ -288,7 +286,7 @@ func sortPhotos(photos []Photo, order string) {
 	case "mtime_asc":
 		sort.Slice(photos, func(i, j int) bool { return photos[i].Mtime < photos[j].Mtime })
 	case "name_asc":
-		sort.Slice(photos, func(i, j int) bool { return strings.ToLower(photos[i].Name) < strings.ToLower(photos[j].Name) })
+		sort.Slice(photos, func(i, j int) bool { return strings.ToLower(photos[i].Name) < strings.ToLower(photos[i].Name) })
 	case "name_desc":
 		sort.Slice(photos, func(i, j int) bool { return strings.ToLower(photos[i].Name) > strings.ToLower(photos[j].Name) })
 	case "mtime_desc", "":
@@ -301,20 +299,10 @@ func sortPhotos(photos []Photo, order string) {
 func isAllowedExt(name string) bool {
 	ext := strings.ToLower(filepath.Ext(name))
 	switch ext {
-	case ".jpg", ".jpeg", ".png", ".webp", ".gif", ".mp4", ".webm", ".ogg", ".ogv", ".mov", ".m4v":
+	case ".jpg", ".jpeg", ".png", ".webp", ".gif":
 		return true
 	default:
 		return false
-	}
-}
-
-func mediaTypeFromName(name string) string {
-	ext := strings.ToLower(filepath.Ext(name))
-	switch ext {
-	case ".mp4", ".webm", ".ogg", ".ogv", ".mov", ".m4v":
-		return "video"
-	default:
-		return "image"
 	}
 }
 
@@ -366,7 +354,6 @@ func securityHeaders(next http.Handler) http.Handler {
 		w.Header().Set("Content-Security-Policy", strings.Join([]string{
 			"default-src 'self'",
 			"img-src 'self' data:",
-			"media-src 'self'",
 			"style-src 'self'",
 			"script-src 'self'",
 		}, "; "))

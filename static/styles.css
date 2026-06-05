@@ -47,10 +47,6 @@ html, body {
   opacity: 1;
 }
 
-.video {
-  display: none;
-}
-
 /* transition=none: instant switch, no animation */
 .trans-none .photo {
   transition: none;
